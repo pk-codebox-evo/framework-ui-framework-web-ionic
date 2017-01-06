@@ -1,7 +1,9 @@
 import { ChangeDetectionStrategy, Component, ElementRef, Input, Renderer, ViewEncapsulation } from '@angular/core';
-import { NgFor, NgStyle } from '@angular/common';
 
 import { Config } from '../../config/config';
+import { Ion } from '../ion';
+import { CSS } from '../../util/dom';
+import { isTrueProperty } from '../../util/util';
 
 /**
  * @name Spinner
@@ -88,7 +90,7 @@ import { Config } from '../../config/config';
  * of `background-color`.
  *
  * ```css
- * ion-spinner svg {
+ * ion-spinner * {
  *   width: 28px;
  *   height: 28px;
  *   stroke: #444;
@@ -98,31 +100,26 @@ import { Config } from '../../config/config';
  */
 @Component({
   selector: 'ion-spinner',
-  template: `
-    <svg viewBox="0 0 64 64" *ngFor="let i of _c" [ngStyle]="i.style">
-     <circle [attr.r]="i.r" transform="translate(32,32)"></circle>
-    </svg>
-    <svg viewBox="0 0 64 64" *ngFor="let i of _l" [ngStyle]="i.style">
-     <line [attr.y1]="i.y1" [attr.y2]="i.y2" transform="translate(32,32)"></line>
-    </svg>
-  `,
-  directives: [NgFor, NgStyle],
+  template:
+    '<svg viewBox="0 0 64 64" *ngFor="let i of _c" [ngStyle]="i.style">' +
+      '<circle [attr.r]="i.r" transform="translate(32,32)"></circle>' +
+    '</svg>' +
+    '<svg viewBox="0 0 64 64" *ngFor="let i of _l" [ngStyle]="i.style">' +
+      '<line [attr.y1]="i.y1" [attr.y2]="i.y2" transform="translate(32,32)"></line>' +
+    '</svg>',
   host: {
-    '[class.spinner-paused]': 'paused'
+    '[class.spinner-paused]': '_paused'
   },
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
 })
-export class Spinner {
-  private _c: any[];
-  private _l: any[];
-  private _name: string;
-  private _dur: number = null;
-  private _init: boolean;
-  private _applied: string;
-
-  /** @internal */ 
-  _color: string;
+export class Spinner extends Ion {
+  _c: any[];
+  _l: any[];
+  _name: string;
+  _dur: number = null;
+  _init: boolean;
+  _paused: boolean = false;
 
   /**
    * @input {string} The predefined color to use. For example: `"primary"`, `"secondary"`, `"danger"`.
@@ -131,10 +128,17 @@ export class Spinner {
   get color(): string {
     return this._color;
   }
-
   set color(value: string) {
-    this._updateColor(value);
-  }  
+    this._setColor(value);
+  }
+
+  /**
+   * @input {string} The mode to apply to this component.
+   */
+  @Input()
+  set mode(val: string) {
+    this._setMode(val);
+  }
 
   /**
    * @input {string} SVG spinner name.
@@ -143,7 +147,6 @@ export class Spinner {
   get name(): string {
     return this._name;
   }
-
   set name(val: string) {
     this._name = val;
     this.load();
@@ -156,22 +159,25 @@ export class Spinner {
   get duration(): number {
     return this._dur;
   }
-
   set duration(val: number) {
     this._dur = val;
     this.load();
   }
 
   /**
-   * @input {string} If the animation is paused or not. Defaults to `false`.
+   * @input {boolean} If the animation is paused or not. Defaults to `false`.
    */
-  @Input() paused: boolean = false;
+  @Input()
+  get paused(): boolean {
+    return this._paused;
+  }
+  set paused(val: boolean) {
+    this._paused = isTrueProperty(val);
+  }
 
-  constructor(
-    private _config: Config, 
-    private _elementRef: ElementRef,
-    private _renderer: Renderer
-  ) {}
+  constructor(config: Config, elementRef: ElementRef, renderer: Renderer) {
+    super(config, elementRef, renderer, 'spinner');
+  }
 
   /**
    * @private
@@ -193,20 +199,19 @@ export class Spinner {
 
       const spinner = SPINNERS[name];
       if (spinner) {
-        this._applied = 'spinner-' + name;
-
         if (spinner.lines) {
           for (var i = 0, l = spinner.lines; i < l; i++) {
-            this._l.push( this._loadEle(spinner, i, l) );
+            this._l.push(this._loadEle(spinner, i, l));
           }
 
         } else if (spinner.circles) {
           for (var i = 0, l = spinner.circles; i < l; i++) {
-            this._c.push( this._loadEle(spinner, i, l) );
+            this._c.push(this._loadEle(spinner, i, l));
           }
         }
 
-        this._renderer.setElementClass(this._elementRef.nativeElement, this._applied, true);
+        this.setElementClass(`spinner-${name}`, true);
+        this.setElementClass(`spinner-${this._mode}-${name}`, true);
       }
     }
   }
@@ -218,24 +223,6 @@ export class Spinner {
     return data;
   }
 
-  /**
-   * @internal
-   */
-  _updateColor(newColor: string) {
-    this._setElementColor(this._color, false);
-    this._setElementColor(newColor, true);
-    this._color = newColor;
-  }
-
-  /**
-   * @internal
-   */
-  _setElementColor(color: string, isAdd: boolean) {
-    if (color !== null && color !== '') {
-      this._renderer.setElementClass(this._elementRef.nativeElement, `spinner-${color}`, isAdd);
-    }
-  }
-
 }
 
 const SPINNERS: any = {
@@ -243,13 +230,13 @@ const SPINNERS: any = {
   ios: {
     dur: 1000,
     lines: 12,
-    fn: function(dur: number, index: number, total: number) {
+    fn: function (dur: number, index: number, total: number) {
       return {
         y1: 17,
         y2: 29,
         style: {
-          transform: 'rotate(' + (30 * index + (index < 6 ? 180 : -180)) + 'deg)',
-          animationDelay: -(dur - ((dur / total) * index)) + 'ms'
+          [CSS.transform]: 'rotate(' + (30 * index + (index < 6 ? 180 : -180)) + 'deg)',
+          [CSS.animationDelay]: -(dur - ((dur / total) * index)) + 'ms'
         }
       };
     }
@@ -258,13 +245,13 @@ const SPINNERS: any = {
   'ios-small': {
     dur: 1000,
     lines: 12,
-    fn: function(dur: number, index: number, total: number) {
+    fn: function (dur: number, index: number, total: number) {
       return {
         y1: 12,
         y2: 20,
         style: {
-          transform: 'rotate(' + (30 * index + (index < 6 ? 180 : -180)) + 'deg)',
-          animationDelay: -(dur - ((dur / total) * index)) + 'ms'
+          [CSS.transform]: 'rotate(' + (30 * index + (index < 6 ? 180 : -180)) + 'deg)',
+          [CSS.animationDelay]: -(dur - ((dur / total) * index)) + 'ms'
         }
       };
     }
@@ -273,13 +260,13 @@ const SPINNERS: any = {
   bubbles: {
     dur: 1000,
     circles: 9,
-    fn: function(dur: number, index: number, total: number) {
+    fn: function (dur: number, index: number, total: number) {
       return {
         r: 5,
         style: {
-          top: 9 * Math.sin(2 * Math.PI * index / total),
-          left: 9 * Math.cos(2 * Math.PI * index / total),
-          animationDelay: -(dur - ((dur / total) * index)) + 'ms'
+          top: (9 * Math.sin(2 * Math.PI * index / total)) + 'px',
+          left: (9 * Math.cos(2 * Math.PI * index / total)) + 'px',
+          [CSS.animationDelay]: -(dur - ((dur / total) * index)) + 'ms'
         }
       };
     }
@@ -288,13 +275,13 @@ const SPINNERS: any = {
   circles: {
     dur: 1000,
     circles: 8,
-    fn: function(dur: number, index: number, total: number) {
+    fn: function (dur: number, index: number, total: number) {
       return {
         r: 5,
         style: {
-          top: 9 * Math.sin(2 * Math.PI * index / total),
-          left: 9 * Math.cos(2 * Math.PI * index / total),
-          animationDelay: -(dur - ((dur / total) * index)) + 'ms'
+          top: (9 * Math.sin(2 * Math.PI * index / total)) + 'px',
+          left: (9 * Math.cos(2 * Math.PI * index / total)) + 'px',
+          [CSS.animationDelay]: -(dur - ((dur / total) * index)) + 'ms'
         }
       };
     }
@@ -303,7 +290,7 @@ const SPINNERS: any = {
   crescent: {
     dur: 750,
     circles: 1,
-    fn: function(dur: number) {
+    fn: function (dur: number) {
       return {
         r: 26,
         style: {}
@@ -314,12 +301,12 @@ const SPINNERS: any = {
   dots: {
     dur: 750,
     circles: 3,
-    fn: function(dur: number, index: number, total: number) {
+    fn: function (dur: number, index: number, total: number) {
       return {
         r: 6,
         style: {
-          left: (9 - (9 * index)),
-          animationDelay: -(110 * index) + 'ms'
+          left: (9 - (9 * index)) + 'px',
+          [CSS.animationDelay]: -(110 * index) + 'ms'
         }
       };
     }

@@ -1,15 +1,18 @@
-import { Component, Directive, ElementRef, EventEmitter, forwardRef, Input, NgZone, Renderer, Inject, Optional, Output } from '@angular/core';
+import { Component, Directive, ElementRef, EventEmitter, forwardRef, HostListener, Input, NgZone, Renderer, Inject, Optional, Output } from '@angular/core';
 
 import { Content } from '../content/content';
 import { CSS, zoneRafFrames } from '../../util/dom';
 import { Item } from './item';
 import { ItemReorderGesture } from '../item/item-reorder-gesture';
-import { isTrueProperty } from '../../util/util';
+import { isTrueProperty, reorderArray } from '../../util/util';
 
 
-export interface ReorderIndexes {
-  from: number;
-  to: number;
+export class ReorderIndexes {
+  constructor(public from: number, public to: number) {}
+
+  applyTo(array: any) {
+    reorderArray(array, this);
+  }
 }
 
 /**
@@ -118,8 +121,18 @@ export interface ReorderIndexes {
  *   }
  * }
  * ```
+ * Alternatevely you can execute helper function inside template:
  *
- * @demo /docs/v2/demos/item-reorder/
+ * ```html
+ * <ion-list>
+ *   <ion-list-header>Header</ion-list-header>
+ *   <ion-item-group reorder="true" (ionItemReorder)="$event.applyTo(items)">
+ *     <ion-item *ngFor="let item of items">{% raw %}{{ item }}{% endraw %}</ion-item>
+ *   </ion-item-group>
+ * </ion-list>
+ * ```
+ *
+ * @demo /docs/v2/demos/src/item-reorder/
  * @see {@link /docs/v2/components#lists List Component Docs}
  * @see {@link ../../list/List List API Docs}
  * @see {@link ../Item Item API Docs}
@@ -129,15 +142,15 @@ export interface ReorderIndexes {
   host: {
     '[class.reorder-enabled]': '_enableReorder',
     '[class.reorder-visible]': '_visibleReorder',
-
   }
 })
 export class ItemReorder {
-  private _enableReorder: boolean = false;
-  private _visibleReorder: boolean = false;
-  private _reorderGesture: ItemReorderGesture;
-  private _lastToIndex: number = -1;
-  private _element: HTMLElement;
+
+  _enableReorder: boolean = false;
+  _visibleReorder: boolean = false;
+  _reorderGesture: ItemReorderGesture;
+  _lastToIndex: number = -1;
+  _element: HTMLElement;
 
   /**
    * @output {object} The expression to evaluate when the item is reordered. Emits an object
@@ -187,58 +200,43 @@ export class ItemReorder {
     }
   }
 
-  /**
-   * @private
-   */
-  reorderPrepare() {
-    let children = this._element.children;
-    let len = children.length;
-    for (let i = 0; i < len; i++) {
-      children[i]['$ionIndex'] = i;
+  _reorderPrepare() {
+    let ele = this._element;
+    let children: any = ele.children;
+    for (let i = 0, ilen = children.length; i < ilen; i++) {
+      var child = children[i];
+      child.$ionIndex = i;
+      child.$ionReorderList = ele;
     }
   }
 
-  /**
-   * @private
-   */
-  reorderStart() {
-    this.setCssClass('reorder-list-active', true);
+  _reorderStart() {
+    this.setElementClass('reorder-list-active', true);
   }
 
-  /**
-   * @private
-   */
-  reorderEmit(fromIndex: number, toIndex: number) {
-    this.reorderReset();
+  _reorderEmit(fromIndex: number, toIndex: number) {
+    this._reorderReset();
     if (fromIndex !== toIndex) {
       this._zone.run(() => {
-        this.ionItemReorder.emit({
-          from: fromIndex,
-          to: toIndex,
-        });
+        const indexes = new ReorderIndexes(fromIndex, toIndex);
+        this.ionItemReorder.emit(indexes);
       });
     }
   }
 
-  /**
-   * @private
-   */
-  scrollContent(scroll: number) {
-    let scrollTop = this._content.getScrollTop() + scroll;
+  _scrollContent(scroll: number) {
+    const scrollTop = this._content.scrollTop + scroll;
     if (scroll !== 0) {
       this._content.scrollTo(0, scrollTop, 0);
     }
     return scrollTop;
   }
 
-  /**
-   * @private
-   */
-  reorderReset() {
+  _reorderReset() {
     let children = this._element.children;
     let len = children.length;
 
-    this.setCssClass('reorder-list-active', false);
+    this.setElementClass('reorder-list-active', false);
     let transform = CSS.transform;
     for (let i = 0; i < len; i++) {
       (<any>children[i]).style[transform] = '';
@@ -246,10 +244,7 @@ export class ItemReorder {
     this._lastToIndex = -1;
   }
 
-  /**
-   * @private
-   */
-  reorderMove(fromIndex: number, toIndex: number, itemHeight: number) {
+  _reorderMove(fromIndex: number, toIndex: number, itemHeight: number) {
     if (this._lastToIndex === -1) {
       this._lastToIndex = fromIndex;
     }
@@ -286,7 +281,7 @@ export class ItemReorder {
   /**
    * @private
    */
-  setCssClass(classname: string, add: boolean) {
+  setElementClass(classname: string, add: boolean) {
     this._rendered.setElementClass(this._element, classname, add);
   }
 
@@ -307,14 +302,21 @@ export class ItemReorder {
 })
 export class Reorder {
   constructor(
-    @Inject(forwardRef(() => Item)) private item: Item,
+    @Inject(forwardRef(() => Item)) private item: ItemReorder,
     private elementRef: ElementRef) {
     elementRef.nativeElement['$ionComponent'] = this;
   }
 
-  getReorderNode() {
+  getReorderNode(): HTMLElement {
     let node = <any>this.item.getNativeElement();
-    return findReorderItem(node);
+    return findReorderItem(node, null);
+  }
+
+  @HostListener('click', ['$event'])
+  onClick(ev) {
+    // Stop propagation if click event reaches ion-reorder
+    ev.preventDefault();
+    ev.stopPropagation();
   }
 
 }
@@ -322,10 +324,13 @@ export class Reorder {
 /**
  * @private
  */
-export function findReorderItem(node: any): HTMLElement {
+export function findReorderItem(node: any, listNode: any): HTMLElement {
   let nested = 0;
   while (node && nested < 4) {
-    if (indexForItem(node) !== undefined ) {
+    if (indexForItem(node) !== undefined) {
+      if (listNode && node.parentNode !== listNode) {
+        return null;
+      }
       return node;
     }
     node = node.parentNode;
@@ -341,3 +346,9 @@ export function indexForItem(element: any): number {
   return element['$ionIndex'];
 }
 
+/**
+ * @private
+ */
+export function reorderListForItem(element: any): any {
+  return element['$ionReorderList'];
+}

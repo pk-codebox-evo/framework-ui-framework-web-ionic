@@ -1,33 +1,16 @@
 import { Attribute, ChangeDetectionStrategy, Component, ElementRef, Input, Renderer, ViewEncapsulation } from '@angular/core';
 
 import { Config } from '../../config/config';
+import { Ion } from '../ion';
 import { isTrueProperty } from '../../util/util';
 
 
 /**
   * @name Button
   * @module ionic
-  *
   * @description
   * Buttons are simple components in Ionic. They can consist of text and icons
   * and be enhanced by a wide range of attributes.
-  *
-  * @property [outline] - A transparent button with a border.
-  * @property [clear] - A transparent button without a border.
-  * @property [round] - A button with rounded corners.
-  * @property [block] - A button that fills its parent container with a border-radius.
-  * @property [full] - A button that fills its parent container without a border-radius or borders on the left/right.
-  * @property [small] - A button with size small.
-  * @property [large] - A button with size large.
-  * @property [disabled] - A disabled button.
-  * @property [fab] - A floating action button.
-  * @property [fab-left] - Position a fab button to the left.
-  * @property [fab-right] - Position a fab button to the right.
-  * @property [fab-center] - Position a fab button towards the center.
-  * @property [fab-top] - Position a fab button towards the top.
-  * @property [fab-bottom] - Position a fab button towards the bottom.
-  * @property [fab-fixed] - Makes a fab button have a fixed position.
-  * @property [color] - Dynamically set which predefined color this button should use (e.g. primary, secondary, danger, etc).
   *
   * @usage
   *
@@ -51,16 +34,12 @@ import { isTrueProperty } from '../../util/util';
   *
   *  <button ion-button round>Round Button</button>
   *
-  *  <button ion-button fab>FAB</button>
-  *
   *  <!-- Outline -->
   *  <button ion-button full outline>Outline + Full</button>
   *
   *  <button ion-button block outline>Outline + Block</button>
   *
   *  <button ion-button round outline>Outline + Round</button>
-  *
-  *  <button ion-button fab outline>FAB</button>
   *
   *  <!-- Icons -->
   *  <button ion-button icon-left>
@@ -85,46 +64,96 @@ import { isTrueProperty } from '../../util/util';
   *  <button ion-button small>Small</button>
   * ```
   *
-  * @demo /docs/v2/demos/button/
+  * @advanced
+  *
+  * ```html
+  *
+  * <!-- Bind the color and outline inputs to an expression -->
+  * <button ion-button [color]="isDanger ? 'danger' : 'primary'" [outline]="isOutline">
+  *   Danger (Solid)
+  * </button>
+  *
+  * <!-- Bind the color and round inputs to an expression -->
+  * <button ion-button [color]="myColor" [round]="isRound">
+  *   Secondary (Round)
+  * </button>
+  *
+  * <!-- Bind the color and clear inputs to an expression -->
+  * <button ion-button [color]="isSecondary ? 'secondary' : 'primary'"  [clear]="isClear">
+  *   Primary (Clear)
+  * </button>
+  *
+  * <!-- Bind the color, outline and round inputs to an expression -->
+  * <button ion-button [color]="myColor2" [outline]="isOutline" [round]="isRound">
+  *   Dark (Solid + Round)
+  * </button>
+  *
+  * <!-- Bind the click event to a method -->
+  * <button ion-button (click)="logEvent($event)">
+  *   Click me!
+  * </button>
+  * ```
+  *
+  * ```ts
+  * @Component({
+  *   templateUrl: 'main.html'
+  * })
+  * class E2EPage {
+  *   isDanger: boolean = true;
+  *   isSecondary: boolean = false;
+  *   isRound: boolean = true;
+  *   isOutline: boolean = false;
+  *   isClear: boolean = true;
+  *   myColor: string = 'secondary';
+  *   myColor2: string = 'dark';
+  *
+  *   logEvent(event) {
+  *     console.log(event)
+  *   }
+  * }
+  *
+  * ```
+  *
+  * @demo /docs/v2/demos/src/button/
   * @see {@link /docs/v2/components#buttons Button Component Docs}
+  * @see {@link /docs/v2/components#fabs FabButton Docs}
+  * @see {@link ../../fab/FabButton FabButton API Docs}
+  * @see {@link ../../fab/FabContainer FabContainer API Docs}
  */
 @Component({
   selector: '[ion-button]',
-  // NOTE: template must not contain spaces between elements
-  template: '<span class="button-inner"><ng-content></ng-content></span><ion-button-effect></ion-button-effect>',
+  template:
+    '<span class="button-inner">' +
+      '<ng-content></ng-content>' +
+    '</span>' +
+    '<div class="button-effect"></div>',
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
 })
-export class Button {
-  /** @internal */
+export class Button extends Ion {
+  /** @private */
   _role: string = 'button'; // bar-button
 
-  /** @internal */
-  _mt: boolean = false; // menutoggle
+  /** @private */
+  _size: string; // large/small/default
 
-  /** @internal */
-  _size: string = null; // large/small/default
-
-  /** @internal */
+  /** @private */
   _style: string = 'default'; // outline/clear/solid
 
-  /** @internal */
-  _shape: string = null; // round/fab
+  /** @private */
+  _shape: string; // round/fab
 
-  /** @internal */
-  _display: string = null; // block/full
+  /** @private */
+  _display: string; // block/full
 
-  /** @internal */
-  _color: string = null; // primary/secondary
+  /** @private */
+  _decorator: string; // strong
 
-  /** @internal */
-  _disabled: boolean = false; // disabled
-
-  /** @internal */
+  /** @private */
   _init: boolean;
 
   /**
-   * @input {string} Large button.
+   * @input {boolean} Large button.
    */
   @Input()
   set large(val: boolean) {
@@ -132,7 +161,7 @@ export class Button {
   }
 
   /**
-   * @input {string} Small button.
+   * @input {boolean} Small button.
    */
   @Input()
   set small(val: boolean) {
@@ -140,7 +169,7 @@ export class Button {
   }
 
   /**
-   * @input {string} Default button.
+   * @input {boolean} Default button.
    */
   @Input()
   set default(val: boolean) {
@@ -148,7 +177,7 @@ export class Button {
   }
 
   /**
-   * @input {string} A transparent button with a border.
+   * @input {boolean} A transparent button with a border.
    */
   @Input()
   set outline(val: boolean) {
@@ -156,7 +185,7 @@ export class Button {
   }
 
   /**
-   * @input {string} A transparent button without a border.
+   * @input {boolean} A transparent button without a border.
    */
   @Input()
   set clear(val: boolean) {
@@ -164,7 +193,7 @@ export class Button {
   }
 
   /**
-   * @input {string} Force a solid button. Useful for buttons within an item.
+   * @input {boolean} Force a solid button. Useful for buttons within an item.
    */
   @Input()
   set solid(val: boolean) {
@@ -172,7 +201,7 @@ export class Button {
   }
 
   /**
-   * @input {string} A button with rounded corners.
+   * @input {boolean} A button with rounded corners.
    */
   @Input()
   set round(val: boolean) {
@@ -180,15 +209,7 @@ export class Button {
   }
 
   /**
-   * @input {string} A floating action button.
-   */
-  @Input()
-  set fab(val: boolean) {
-    this._attr('_shape', 'fab', val);
-  }
-
-  /**
-   * @input {string} A button that fills its parent container with a border-radius.
+   * @input {boolean} A button that fills its parent container with a border-radius.
    */
   @Input()
   set block(val: boolean) {
@@ -196,16 +217,35 @@ export class Button {
   }
 
   /**
-   * @input {string} A button that fills its parent container without a border-radius or borders on the left/right.
+   * @input {boolean} A button that fills its parent container without a border-radius or borders on the left/right.
    */
   @Input()
   set full(val: boolean) {
     this._attr('_display', 'full', val);
   }
 
+  /**
+   * @input {boolean} A button that has strong importance, ie. it represents an important action.
+   */
+  @Input()
+  set strong(val: boolean) {
+    this._attr('_decorator', 'strong', val);
+  }
+
+  /**
+   * @input {string} The mode to apply to this component.
+   */
+  @Input()
+  set mode(val: string) {
+    this._assignCss(false);
+    this._mode = val;
+    this._assignCss(true);
+  }
+
+  /** @private */
   _attr(type: string, attrName: string, attrValue: boolean) {
     if (type === '_style') {
-      this._setColor(this._color, isTrueProperty(attrValue));
+      this._updateColor(this._color, false);
     }
     this._setClass((<any>this)[type], false);
     if (isTrueProperty(attrValue)) {
@@ -217,66 +257,45 @@ export class Button {
       (<any>this)[type] = (type === '_style' ? 'default' : null);
       this._setClass((<any>this)[type], true);
     }
+    if (type === '_style') {
+      this._updateColor(this._color, true);
+    }
+
   }
 
   /**
-   * @input {string} Dynamically set which predefined color this button should use (e.g. primary, secondary, danger, etc).
+   * @input {string} The predefined color to use. For example: `"primary"`, `"secondary"`, `"danger"`.
    */
   @Input()
   set color(val: string) {
-    this._updateColor(val);
+    this._updateColor(this._color, false);
+    this._updateColor(val, true);
+    this._color = val;
+
   }
 
   constructor(
-    @Attribute('menuToggle') menuToggle: string,
     @Attribute('ion-button') ionButton: string,
     config: Config,
-    private _elementRef: ElementRef,
-    private _renderer: Renderer
+    elementRef: ElementRef,
+    renderer: Renderer
   ) {
-    let element = _elementRef.nativeElement;
+    super(config, elementRef, renderer);
+    this._mode = config.get('mode');
 
     if (config.get('hoverCSS') === false) {
-      _renderer.setElementClass(element, 'disable-hover', true);
-    }
-
-    if (element.hasAttribute('disabled')) {
-      this._disabled = true;
+      this.setElementClass('disable-hover', true);
     }
 
     if (ionButton.trim().length > 0) {
       this.setRole(ionButton);
     }
-
-    // menuToggle can be added with or without a string
-    // but if the attribute isn't added it will be null
-    if (menuToggle !== null) {
-      this._mt = true;
-    }
   }
 
-  /**
-   * @private
-   */
+  /** @private */
   ngAfterContentInit() {
     this._init = true;
     this._assignCss(true);
-  }
-
-  /**
-   * @internal
-   */
-  _updateColor(newColor: string) {
-    this._setColor(this._color, false);
-    this._setColor(newColor, true);
-    this._color = newColor;
-  }
-
-  /**
-   * @private
-   */
-  addClass(className: string) {
-    this._renderer.setElementClass(this._elementRef.nativeElement, className, true);
   }
 
   /**
@@ -289,36 +308,38 @@ export class Button {
   }
 
   /**
-   * @internal
+   * @private
    */
   _assignCss(assignCssClass: boolean) {
     let role = this._role;
     if (role) {
-      this._renderer.setElementClass(this._elementRef.nativeElement, role, assignCssClass); // button
-
-      this._setClass('menutoggle', this._mt); // menutoggle
+      this.setElementClass(role, assignCssClass); // button
+      this.setElementClass(`${role}-${this._mode}`, assignCssClass); // button
 
       this._setClass(this._style, assignCssClass); // button-clear
       this._setClass(this._shape, assignCssClass); // button-round
       this._setClass(this._display, assignCssClass); // button-full
       this._setClass(this._size, assignCssClass); // button-small
-      this._setColor(this._color, assignCssClass); // button-secondary, bar-button-secondary
+      this._setClass(this._decorator, assignCssClass); // button-strong
+      this._updateColor(this._color, assignCssClass); // button-secondary, bar-button-secondary
     }
   }
 
   /**
-   * @internal
+   * @private
    */
   _setClass(type: string, assignCssClass: boolean) {
     if (type && this._init) {
-      this._renderer.setElementClass(this._elementRef.nativeElement, this._role + '-' + type.toLowerCase(), assignCssClass);
+      type = type.toLocaleLowerCase();
+      this.setElementClass(`${this._role}-${type}`, assignCssClass);
+      this.setElementClass(`${this._role}-${type}-${this._mode}`, assignCssClass);
     }
   }
 
   /**
-   * @internal
+   * @private
    */
-  _setColor(color: string, isAdd: boolean) {
+  _updateColor(color: string, isAdd: boolean) {
     if (color && this._init) {
       // The class should begin with the button role
       // button, bar-button
@@ -331,7 +352,7 @@ export class Button {
       className += (style !== null && style !== '' && style !== 'default' ? '-' + style.toLowerCase() : '');
 
       if (color !== null && color !== '') {
-        this._renderer.setElementClass(this._elementRef.nativeElement, `${className}-${color}`, isAdd);
+        this.setElementClass(`${className}-${this._mode}-${color}`, isAdd);
       }
     }
   }

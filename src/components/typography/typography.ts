@@ -1,49 +1,80 @@
-import { Directive, ElementRef, Input, Renderer } from '@angular/core';
+import { Attribute, Directive, ElementRef, Input, Renderer } from '@angular/core';
+
+import { Config } from '../../config/config';
+import { Ion } from '../ion';
 
 
 /**
-  * @private
-  * Select all of the HTML text elements with the color attribute to apply the text-color class.
+  * @private TODO remove this line when we remove the other selectors in order to document it
+  * @name Typography
+  * @module ionic
+  * @description
+  *
+  * The Typography component is a simple component that can be used to style the text color of any element.
+  * The `ion-text` attribute should be added to the element in order to pass a color from the Sass `$colors`
+  * map and change the text color of that element.
+  *
+  * @usage
+  *
+  * ```html
+  * <h1 ion-text color="secondary">H1: The quick brown fox jumps over the lazy dog</h1>
+  *
+  * <h2 ion-text color="primary">H2: The quick brown fox jumps over the lazy dog</h2>
+  *
+  * <h3 ion-text color="light">H3: The quick brown fox jumps over the lazy dog</h3>
+  *
+  * <h4 ion-text color="danger">H4: The quick brown fox jumps over the lazy dog</h4>
+  *
+  * <h5 ion-text color="dark">H5: The quick brown fox jumps over the lazy dog</h5>
+  *
+  * <h6 ion-text [color]="dynamicColor">H6: The quick brown fox jumps over the lazy dog</h6>
+  *
+  * <p>
+  *   I saw a werewolf with a Chinese menu in his hand.
+  *   Walking through the <sub ion-text color="danger">streets</sub> of Soho in the rain.
+  *   He <i ion-text color="primary">was</i> looking for a place called Lee Ho Fook's.
+  *   Gonna get a <a ion-text color="secondary">big dish of beef chow mein.</a>
+  * </p>
+  *
+  * <p>
+  *   He's the hairy-handed gent who ran amuck in Kent.
+  *   Lately he's <sup ion-text color="primary">been</sup> overheard in Mayfair.
+  *   Better stay away from him.
+  *   He'll rip your lungs out, Jim.
+  *   I'd like to meet his tailor.
+  * </p>
+  * ```
+  *
  */
 @Directive({
-  selector: 'h1[color], h2[color], h3[color], h4[color], h5[color], h6[color], a[color], p[color], span[color], b[color], i[color], strong[color], em[color], small[color], sub[color], sup[color]'
+  selector: 'h1[color], h2[color], h3[color], h4[color], h5[color], h6[color], a[color]:not([ion-button]):not([ion-item]):not([ion-fab]), p[color], span[color], b[color], i[color], strong[color], em[color], small[color], sub[color], sup[color], [ion-text]'
 })
-export class Typography {
-  /** @internal */ 
-  _color: string;
+export class Typography extends Ion {
 
   /**
    * @input {string} The predefined color to use. For example: `"primary"`, `"secondary"`, `"danger"`.
    */
   @Input()
-  get color(): string {
-    return this._color;
-  }
-
-  set color(value: string) {
-    this._updateColor(value);
-  }
-
-  constructor(
-    private _elementRef: ElementRef,
-    private _renderer: Renderer
-  ) { }
-
-  /**
-   * @internal
-   */
-  _updateColor(newColor: string) {
-    this._setElementColor(this._color, false);
-    this._setElementColor(newColor, true);
-    this._color = newColor;
+  set color(val: string) {
+    this._setColor(val);
   }
 
   /**
-   * @internal
+   * @input {string} The mode to apply to this component.
    */
-  _setElementColor(color: string, isAdd: boolean) {
-    if (color !== null && color !== '') {
-      this._renderer.setElementClass(this._elementRef.nativeElement, `text-${color}`, isAdd);
+  @Input()
+  set mode(val: string) {
+    this._setMode(val);
+  }
+
+  constructor(config: Config, elementRef: ElementRef, renderer: Renderer, @Attribute('ion-text') ionText: string) {
+    super(config, elementRef, renderer, 'text');
+
+    // TODO: Deprecated: all selectors besides `[ion-text]` rc.3
+    // Remove all other selectors and the `ionText` attribute
+    if (ionText === null) {
+      console.warn('Deprecated: The color input has been removed from HTML elements. Please add the `ion-text` attribute in order to use the color input. For example: `<a ion-text color="secondary">Link</a>`');
     }
   }
+
 }
